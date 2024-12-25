@@ -114,27 +114,48 @@ class LogisticRegression:
 
     def fit(self, X, y):
         n_samples, n_features = X.shape
-        self.weights = np.zeros(n_features)
-        self.bias = 0
 
-        for _ in range(self.n_iters):
-            linear_model = np.dot(X, self.weights) + self.bias
-            if self.task == "classification":
-                y_predicted = self._sigmoid(linear_model)
-            elif self.task == "regression":
+        if self.task == "classification":
+            self.classes_ = np.unique(y)
+            n_classes = len(self.classes_)
+
+            self.weights = np.zeros((n_classes, n_features))
+            self.bias = np.zeros(n_classes)
+
+            # One-vs-Rest 
+            for idx, cls in enumerate(self.classes_):
+                y_binary = np.where(y == cls, 1, 0)
+
+                for _ in range(self.n_iters):
+                    linear_model = np.dot(X, self.weights[idx]) + self.bias[idx]
+                    y_predicted = self._sigmoid(linear_model)
+
+                    dw = (1 / n_samples) * np.dot(X.T, (y_predicted - y_binary))
+                    db = (1 / n_samples) * np.sum(y_predicted - y_binary)
+
+                    self.weights[idx] -= self.lr * dw
+                    self.bias[idx] -= self.lr * db
+
+        elif self.task == "regression":
+            self.weights = np.zeros(n_features)
+            self.bias = 0
+
+            for _ in range(self.n_iters):
+                linear_model = np.dot(X, self.weights) + self.bias
                 y_predicted = linear_model
 
-            dw = (1 / n_samples) * np.dot(X.T, (y_predicted - y))
-            db = (1 / n_samples) * np.sum(y_predicted - y)
+                dw = (1 / n_samples) * np.dot(X.T, (y_predicted - y))
+                db = (1 / n_samples) * np.sum(y_predicted - y)
 
-            self.weights -= self.lr * dw
-            self.bias -= self.lr * db
+                self.weights -= self.lr * dw
+                self.bias -= self.lr * db
 
     def predict(self, X):
-        linear_model = np.dot(X, self.weights) + self.bias
+        linear_model = np.dot(X, self.weights.T) + self.bias
+
         if self.task == "classification":
             y_predicted = self._sigmoid(linear_model)
-            return [1 if i > 0.5 else 0 for i in y_predicted]
+            return np.argmax(y_predicted, axis=1)
         elif self.task == "regression":
             return linear_model
 
